@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      initContainers:
+      - name: init-log
+        image: busybox
+        command: ["sh", "-c", "touch /var/log/user.log"]
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+      containers:
+      - name: order
+        image: order-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3001
+        env: 
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key-secret
+              key: api-key
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "500m"
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+      - name: order-log-sidecar
+        image: busybox
+        command: ["sh", "-c", "tail -f /var/log/user.log"]
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+      volumes:
+      - name: log-volume
+        emptyDir: {}

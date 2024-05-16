@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: user
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      initContainers:
+      - name: init-log
+        image: busybox
+        command: ["sh", "-c", "touch /var/log/user.log"]
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+      containers:
+      - name: user
+        image: user-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3002
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "500m"
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key-secret
+              key: api-key
+      - name: user-log-sidecar
+        image: busybox
+        command: ["sh", "-c", "tail -f /var/log/user.log"]
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+      volumes:
+      - name: log-volume
+        emptyDir: {}
